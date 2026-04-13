@@ -595,12 +595,67 @@
   const obs=new IntersectionObserver(e=>e.forEach(r=>{if(r.isIntersecting){r.target.classList.add('visible');obs.unobserve(r.target)}}),{threshold:0.1});
   document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
 
-  /* FORM */
-  function submitForm(e){
+  /* FORM — GHL Integration */
+  async function submitForm(e){
     e.preventDefault();
     const btn=e.target.querySelector('.form-btn');
-    btn.textContent='Submitting...';btn.disabled=true;btn.style.opacity='0.7';
-    setTimeout(()=>{btn.textContent="We'll Call You Within 24hrs ✓";btn.style.background='#16A34A';btn.style.opacity='1'},1500);
+    const firstName=document.getElementById('fn').value.trim();
+    const lastName=document.getElementById('ln').value.trim();
+    const phone=document.getElementById('tel').value.trim();
+    const email=document.getElementById('em').value.trim();
+    const program=document.getElementById('prog').value;
+
+    if(!firstName||!lastName||!phone||!email){
+      btn.textContent='Fill in all fields';btn.style.background='#C8102E';
+      setTimeout(()=>{btn.textContent='Get Free Info Now →';btn.style.background=''},2000);
+      return;
+    }
+
+    btn.textContent='Sending...';btn.disabled=true;btn.style.opacity='0.7';
+
+    const TOKEN='pit-b1181e84-864a-4761-8f93-2d28962e0538';
+    const LOC='IsfmQk1eiB8MMpbjLHcY';
+    const PIPELINE='m2H3gnEP9lVtpzQ8neQq';
+    const STAGE='6085621e-7945-43e6-ad3e-05fa2efb1f5b';
+    const HEADERS={'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json','Version':'2021-07-28'};
+
+    try{
+      // 1. Create contact
+      const cRes=await fetch('https://services.leadconnectorhq.com/contacts/',{
+        method:'POST',headers:HEADERS,
+        body:JSON.stringify({
+          firstName,lastName,phone,email,locationId:LOC,
+          source:'CDL Landing Page',
+          tags:['CDL Lead',program?program.split('—')[0].trim():'Interest Unknown']
+        })
+      });
+      const cData=await cRes.json();
+      const contactId=cData.contact?.id;
+
+      // 2. Create opportunity in New Lead stage
+      const value=program.includes('Manual')?3500:3000;
+      await fetch('https://services.leadconnectorhq.com/opportunities/',{
+        method:'POST',headers:HEADERS,
+        body:JSON.stringify({
+          pipelineId:PIPELINE,locationId:LOC,
+          name:`${firstName} ${lastName} — ${program||'CDL Lead'}`,
+          pipelineStageId:STAGE,
+          status:'open',
+          contactId,
+          monetaryValue:value,
+          source:'CDL Landing Page'
+        })
+      });
+
+      btn.textContent="✓ We'll Call You Within 24 Hours!";
+      btn.style.background='#16A34A';btn.style.opacity='1';btn.disabled=false;
+      e.target.reset();
+    }catch(err){
+      console.error('GHL submission error:',err);
+      btn.textContent='Something went wrong — try again';
+      btn.style.background='#C8102E';btn.disabled=false;btn.style.opacity='1';
+      setTimeout(()=>{btn.textContent='Get Free Info Now →';btn.style.background=''},3000);
+    }
   }
 
   /* SMOOTH ANCHOR */
